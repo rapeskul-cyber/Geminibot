@@ -1,0 +1,10 @@
+{
+  "name": "telegram-gemini-agent",
+  "version": "1.0.0",
+  "main": "api/webhook.js",
+  "dependencies": {
+    "@google/genai": "^0.1.2",
+    "axios": "^1.7.0",
+    "form-data": "^4.0.0"
+  }
+}
