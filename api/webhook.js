@@ -227,15 +227,15 @@ module.exports = async function handler(req, res) {
   }
 
   if (lowerText === '/mode' || lowerText === '/status') {
-    const currentMode = userModes.get(chatId) || 'gemini';
+    const currentMode = userModes.get(chatId) || 'jules';
     await sendTelegramMessage(
       chatId,
-      `ℹ️ Mode AI saat ini: *${currentMode.toUpperCase()}*\n\nGunakan perintah:\n- \`/gemini\` untuk beralih ke Mode Gemini AI\n- \`/jules\` untuk beralih ke Mode Jules AI`
+      `ℹ️ Mode AI saat ini: *${currentMode.toUpperCase()}*\n\nGunakan perintah:\n- \`/jules\` untuk beralih ke Mode Jules AI (Default)\n- \`/gemini\` untuk beralih ke Mode Gemini AI`
     );
     return res.status(200).json({ status: 'ok' });
   }
 
-  const activeMode = userModes.get(chatId) || 'gemini';
+  const activeMode = userModes.get(chatId) || 'jules';
   const activeApiKey = sanitizeApiKey(activeMode === 'jules' ? (JULES_API_KEY || GEMINI_API_KEY) : GEMINI_API_KEY);
   const ai = new GoogleGenAI({ apiKey: activeApiKey });
 
