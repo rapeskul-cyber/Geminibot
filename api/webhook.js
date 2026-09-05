@@ -2,17 +2,24 @@ const { GoogleGenAI } = require('@google/genai');
 const axios = require('axios');
 const FormData = require('form-data');
 
-// Retrieve credentials securely from environment variables
-const GEMINI_API_KEY =
+// Clean environment variable values (remove accidental spaces, newlines, or quotes)
+function sanitizeApiKey(key) {
+  if (!key) return '';
+  return key.replace(/\s+/g, '').replace(/^["']|["']$/g, '');
+}
+
+const GEMINI_API_KEY = sanitizeApiKey(
   process.env.GEMINI_API_KEY ||
   process.env.GEMINI_KEY ||
-  process.env.GOOGLE_API_KEY;
+  process.env.GOOGLE_API_KEY
+);
 
-const JULES_API_KEY =
+const JULES_API_KEY = sanitizeApiKey(
   process.env.JULES_API_KEY ||
-  GEMINI_API_KEY;
+  GEMINI_API_KEY
+);
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+const TELEGRAM_BOT_TOKEN = sanitizeApiKey(process.env.TELEGRAM_BOT_TOKEN);
 
 // In-memory store for user AI model selection mode (chatId -> 'gemini' | 'jules')
 const userModes = new Map();
@@ -56,7 +63,7 @@ const tools = [
 ];
 
 async function sendTelegramMessage(chatId, text, botToken) {
-  const token = botToken || TELEGRAM_BOT_TOKEN;
+  const token = sanitizeApiKey(botToken || TELEGRAM_BOT_TOKEN);
   if (!token) return;
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
   await axios.post(url, {
@@ -73,7 +80,7 @@ async function sendTelegramMessage(chatId, text, botToken) {
 }
 
 async function sendTelegramPhoto(chatId, imageBuffer, caption, botToken) {
-  const token = botToken || TELEGRAM_BOT_TOKEN;
+  const token = sanitizeApiKey(botToken || TELEGRAM_BOT_TOKEN);
   if (!token) return;
   const url = `https://api.telegram.org/bot${token}/sendPhoto`;
   const form = new FormData();
@@ -88,7 +95,7 @@ async function sendTelegramPhoto(chatId, imageBuffer, caption, botToken) {
 }
 
 async function sendTelegramVideo(chatId, videoUrl, caption, botToken) {
-  const token = botToken || TELEGRAM_BOT_TOKEN;
+  const token = sanitizeApiKey(botToken || TELEGRAM_BOT_TOKEN);
   if (!token) return;
   const url = `https://api.telegram.org/bot${token}/sendVideo`;
   await axios.post(url, {
@@ -107,7 +114,8 @@ async function sendTelegramVideo(chatId, videoUrl, caption, botToken) {
 
 async function handleGenerateImage(prompt, chatId, apiKey, botToken) {
   try {
-    const ai = new GoogleGenAI({ apiKey: apiKey || GEMINI_API_KEY });
+    const key = sanitizeApiKey(apiKey || GEMINI_API_KEY);
+    const ai = new GoogleGenAI({ apiKey: key });
     await sendTelegramMessage(chatId, '🎨 Generating image with Imagen 3...', botToken);
     const response = await ai.models.generateImages({
       model: 'imagen-3.0-generate-002',
@@ -133,7 +141,8 @@ async function handleGenerateImage(prompt, chatId, apiKey, botToken) {
 
 async function handleGenerateVideo(prompt, chatId, apiKey, botToken) {
   try {
-    const ai = new GoogleGenAI({ apiKey: apiKey || GEMINI_API_KEY });
+    const key = sanitizeApiKey(apiKey || GEMINI_API_KEY);
+    const ai = new GoogleGenAI({ apiKey: key });
     await sendTelegramMessage(
       chatId,
       '🎬 Generating video with Google Veo. This may take a few moments...',
@@ -227,7 +236,7 @@ module.exports = async function handler(req, res) {
   }
 
   const activeMode = userModes.get(chatId) || 'gemini';
-  const activeApiKey = activeMode === 'jules' ? (JULES_API_KEY || GEMINI_API_KEY) : GEMINI_API_KEY;
+  const activeApiKey = sanitizeApiKey(activeMode === 'jules' ? (JULES_API_KEY || GEMINI_API_KEY) : GEMINI_API_KEY);
   const ai = new GoogleGenAI({ apiKey: activeApiKey });
 
   const systemInstruction = activeMode === 'jules'
