@@ -8,9 +8,14 @@ const GEMINI_API_KEY =
   process.env.GEMINI_KEY ||
   process.env.GOOGLE_API_KEY;
 
+const JULES_API_KEY =
+  process.env.JULES_API_KEY ||
+  GEMINI_API_KEY;
+
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 
-const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+// In-memory store for user AI model selection mode (chatId -> 'gemini' | 'jules')
+const userModes = new Map();
 
 // Define tools for Gemini Function Calling
 const tools = [
@@ -100,8 +105,9 @@ async function sendTelegramVideo(chatId, videoUrl, caption, botToken) {
   });
 }
 
-async function handleGenerateImage(prompt, chatId, botToken) {
+async function handleGenerateImage(prompt, chatId, apiKey, botToken) {
   try {
+    const ai = new GoogleGenAI({ apiKey: apiKey || GEMINI_API_KEY });
     await sendTelegramMessage(chatId, '🎨 Generating image with Imagen 3...', botToken);
     const response = await ai.models.generateImages({
       model: 'imagen-3.0-generate-002',
@@ -125,8 +131,9 @@ async function handleGenerateImage(prompt, chatId, botToken) {
   }
 }
 
-async function handleGenerateVideo(prompt, chatId, botToken) {
+async function handleGenerateVideo(prompt, chatId, apiKey, botToken) {
   try {
+    const ai = new GoogleGenAI({ apiKey: apiKey || GEMINI_API_KEY });
     await sendTelegramMessage(
       chatId,
       '🎬 Generating video with Google Veo. This may take a few moments...',
@@ -189,13 +196,56 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ status: 'Non-text message received' });
   }
 
+  // Command handling for mode switching
+  const lowerText = userText.trim().toLowerCase();
+
+  if (lowerText === '/gemini') {
+    userModes.set(chatId, 'gemini');
+    await sendTelegramMessage(
+      chatId,
+      '🤖 *Mode AI diubah ke Gemini AI.*\n\nModel: `gemini-2.5-flash` dengan fitur Imagen 3 & Veo enabled.'
+    );
+    return res.status(200).json({ status: 'ok', mode: 'gemini' });
+  }
+
+  if (lowerText === '/jules') {
+    userModes.set(chatId, 'jules');
+    await sendTelegramMessage(
+      chatId,
+      '⚡ *Mode AI diubah ke Jules AI.*\n\nPersona: Expert Software Engineer & Coding Assistant.'
+    );
+    return res.status(200).json({ status: 'ok', mode: 'jules' });
+  }
+
+  if (lowerText === '/mode' || lowerText === '/status') {
+    const currentMode = userModes.get(chatId) || 'gemini';
+    await sendTelegramMessage(
+      chatId,
+      `ℹ️ Mode AI saat ini: *${currentMode.toUpperCase()}*\n\nGunakan perintah:\n- \`/gemini\` untuk beralih ke Mode Gemini AI\n- \`/jules\` untuk beralih ke Mode Jules AI`
+    );
+    return res.status(200).json({ status: 'ok' });
+  }
+
+  const activeMode = userModes.get(chatId) || 'gemini';
+  const activeApiKey = activeMode === 'jules' ? (JULES_API_KEY || GEMINI_API_KEY) : GEMINI_API_KEY;
+  const ai = new GoogleGenAI({ apiKey: activeApiKey });
+
+  const systemInstruction = activeMode === 'jules'
+    ? 'You are Jules, an extremely skilled software engineer and coding agent assistant. Provide clear, accurate, high-quality code solutions and explanations.'
+    : undefined;
+
   try {
+    const config = {
+      tools: tools,
+    };
+    if (systemInstruction) {
+      config.systemInstruction = systemInstruction;
+    }
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: userText,
-      config: {
-        tools: tools,
-      },
+      config: config,
     });
 
     const functionCalls = response.functionCalls;
@@ -203,9 +253,9 @@ module.exports = async function handler(req, res) {
     if (functionCalls && functionCalls.length > 0) {
       for (const call of functionCalls) {
         if (call.name === 'generateImage') {
-          await handleGenerateImage(call.args.prompt, chatId);
+          await handleGenerateImage(call.args.prompt, chatId, activeApiKey);
         } else if (call.name === 'generateVideo') {
-          await handleGenerateVideo(call.args.prompt, chatId);
+          await handleGenerateVideo(call.args.prompt, chatId, activeApiKey);
         }
       }
     } else {
