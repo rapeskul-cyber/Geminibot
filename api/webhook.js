@@ -212,7 +212,7 @@ module.exports = async function handler(req, res) {
     userModes.set(chatId, 'gemini');
     await sendTelegramMessage(
       chatId,
-      '🤖 *Mode AI diubah ke Gemini AI.*\n\nModel: `gemini-2.5-flash` dengan fitur Imagen 3 & Veo enabled.'
+      '🤖 *Mode AI diubah ke Gemini AI.*\n\nModel: `gemini-3.6-flash` dengan fitur Imagen 3 & Veo enabled.'
     );
     return res.status(200).json({ status: 'ok', mode: 'gemini' });
   }
@@ -252,7 +252,7 @@ module.exports = async function handler(req, res) {
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       contents: userText,
       config: config,
     });
